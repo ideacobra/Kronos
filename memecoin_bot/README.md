@@ -137,51 +137,6 @@ The bot persists state in a SQLite file (`DB_PATH`, default
 `memecoin_bot.db`); restarting `run` picks up existing open positions and
 cash correctly instead of resetting to the starting balance.
 
-## Live dashboard
-
-`dashboard.py` is a small, dependency-free, **read-only** web viewer for
-watching the paper portfolio: an equity curve chart, open positions with
-live mark-to-market P&L, and a recent closed-trades log. It never places
-trades or writes to the portfolio -- it only reads the same SQLite
-database `bot.py` writes to, plus a light public DexScreener price lookup
-for currently open positions.
-
-```bash
-python -m memecoin_bot.dashboard --port 8765
-# then open http://127.0.0.1:8765/ in a browser
-```
-
-## Persistent local installation (macOS, via launchd)
-
-To have the bot (and dashboard) keep running in the background -- surviving
-this terminal/session closing, and restarting automatically at login --
-install them as per-user `launchd` services. Two ready-made property lists
-are used (adjust the embedded paths if you move the repo):
-
-```bash
-# One-time setup: point these at your actual repo + venv paths, then:
-cp memecoin_bot/launchd/com.memecoinbot.trader.plist ~/Library/LaunchAgents/
-cp memecoin_bot/launchd/com.memecoinbot.dashboard.plist ~/Library/LaunchAgents/
-launchctl load -w ~/Library/LaunchAgents/com.memecoinbot.trader.plist
-launchctl load -w ~/Library/LaunchAgents/com.memecoinbot.dashboard.plist
-
-# Check status:
-launchctl list | grep memecoinbot
-tail -f logs/trader.err.log       # bot activity log
-tail -f logs/dashboard.out.log    # dashboard server log
-
-# Stop / uninstall:
-launchctl unload ~/Library/LaunchAgents/com.memecoinbot.trader.plist
-launchctl unload ~/Library/LaunchAgents/com.memecoinbot.dashboard.plist
-rm ~/Library/LaunchAgents/com.memecoinbot.trader.plist ~/Library/LaunchAgents/com.memecoinbot.dashboard.plist
-```
-
-`RunAtLoad` + `KeepAlive` mean both services start automatically at login
-and restart if they ever crash. **This changes nothing about the safety
-posture** -- the installed service runs the exact same paper-trading `run`
-loop and read-only dashboard as running them manually; there is still no
-code path that can execute a real trade.
-
 ## Testing
 
 ```bash
