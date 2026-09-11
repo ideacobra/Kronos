@@ -1,16 +1,19 @@
-"""Factual-only tweet templates for transparent paper-trade logging.
+"""Factual-only tweet templates for transparent trade logging.
 
 Design rules (see the repo-level safety constraints in the task/README):
-  - Every template is rendered *after* a (simulated) trade already happened.
-    Nothing here is predictive or promotional about any token.
-  - Every template includes an explicit simulated/paper-trade disclaimer.
+  - Every template is rendered *after* a trade already happened (simulated
+    or, in live mode, a real confirmed on-chain trade). Nothing here is
+    predictive or promotional about any token.
+  - Every template includes an explicit simulated-trade or live-trade
+    disclaimer (`is_live=True` switches the wording; see `bot.py`, which
+    sets this based on whether a real broker was injected).
   - Every template only reports already-known, factual numbers: action,
-    token, entry/exit price, virtual USD size, P&L%, hold time.
+    token, entry/exit price, USD size, P&L%, hold time.
 
 `contains_hype_language()` is an honesty guardrail: it flags known
 hype/promotional buzzwords so a future template edit can't accidentally
 turn a factual log into promotion. The test suite asserts every template's
-rendered output passes this guardrail.
+rendered output passes this guardrail, in both paper and live wording.
 """
 from __future__ import annotations
 
@@ -18,6 +21,8 @@ from typing import Optional
 
 SIMULATED_DISCLAIMER = "📝 Simulated trade — not financial advice."
 PAPER_TRADING_TAG = "#PaperTrading"
+LIVE_DISCLAIMER = "⚠️ Live trade — real funds, not financial advice."
+LIVE_TRADING_TAG = "#LiveTrading"
 
 # Substrings checked case-insensitively against rendered tweet text. Kept
 # deliberately broad (better to over-flag in tests than let hype slip in).
@@ -97,18 +102,22 @@ def format_trade_opened(
     size_usd: float,
     score: float,
     kronos_confirmed: Optional[bool] = None,
+    is_live: bool = False,
 ) -> str:
-    """Factual log of a newly opened paper position."""
+    """Factual log of a newly opened position (paper by default, or a real
+    confirmed live trade when `is_live=True`)."""
+    action_label = "Live trade OPENED" if is_live else "Paper trade OPENED"
+    size_label = "Size" if is_live else "Virtual size"
     lines = [
-        f"Paper trade OPENED: ${symbol} ({_short_address(token_address)})",
+        f"{action_label}: ${symbol} ({_short_address(token_address)})",
         f"Entry price: {_fmt_price(entry_price)}",
-        f"Virtual size: {_fmt_usd(size_usd)}",
+        f"{size_label}: {_fmt_usd(size_usd)}",
         f"FOMO/momentum score: {score:.0f}/100",
     ]
     if kronos_confirmed is not None:
         lines.append(f"Kronos model agreement: {'yes' if kronos_confirmed else 'no'}")
-    lines.append(SIMULATED_DISCLAIMER)
-    lines.append(PAPER_TRADING_TAG)
+    lines.append(LIVE_DISCLAIMER if is_live else SIMULATED_DISCLAIMER)
+    lines.append(LIVE_TRADING_TAG if is_live else PAPER_TRADING_TAG)
     return "\n".join(lines)
 
 
@@ -122,8 +131,10 @@ def format_trade_closed(
     realized_pnl_pct: float,
     hold_minutes: float,
     exit_reason: str,
+    is_live: bool = False,
 ) -> str:
-    """Factual log of a closed paper position (win or loss)."""
+    """Factual log of a closed position (paper by default, or a real
+    confirmed live trade when `is_live=True`), win or loss."""
     outcome = "WIN" if realized_pnl_usd > 0 else "LOSS"
     exit_reason_label = {
         "stop_loss": "stop-loss",
@@ -131,13 +142,15 @@ def format_trade_closed(
         "time_exit": "max hold time",
     }.get(exit_reason, exit_reason)
 
+    action_label = "Live trade CLOSED" if is_live else "Paper trade CLOSED"
+    size_label = "Size" if is_live else "Virtual size"
     lines = [
-        f"Paper trade CLOSED ({outcome}): ${symbol} ({_short_address(token_address)})",
+        f"{action_label} ({outcome}): ${symbol} ({_short_address(token_address)})",
         f"Entry: {_fmt_price(entry_price)} -> Exit: {_fmt_price(exit_price)}",
-        f"Virtual size: {_fmt_usd(size_usd)} | P&L: {_fmt_usd(realized_pnl_usd)} ({_fmt_pct(realized_pnl_pct)})",
+        f"{size_label}: {_fmt_usd(size_usd)} | P&L: {_fmt_usd(realized_pnl_usd)} ({_fmt_pct(realized_pnl_pct)})",
         f"Hold time: {_fmt_hold_minutes(hold_minutes)} | Exit reason: {exit_reason_label}",
-        SIMULATED_DISCLAIMER,
-        PAPER_TRADING_TAG,
+        LIVE_DISCLAIMER if is_live else SIMULATED_DISCLAIMER,
+        LIVE_TRADING_TAG if is_live else PAPER_TRADING_TAG,
     ]
     return "\n".join(lines)
 
@@ -151,18 +164,20 @@ def format_portfolio_summary(
     open_positions: int,
     total_trades: int,
     win_rate_pct: float,
+    is_live: bool = False,
 ) -> str:
-    """Factual periodic summary of the whole paper portfolio."""
+    """Factual periodic summary of the whole portfolio (paper by default, or
+    the real live wallet-backed portfolio when `is_live=True`)."""
     total_pnl_usd = equity_usd - starting_balance_usd
     total_pnl_pct = (total_pnl_usd / starting_balance_usd * 100.0) if starting_balance_usd else 0.0
 
     lines = [
-        "Paper portfolio summary",
+        "Live portfolio summary" if is_live else "Paper portfolio summary",
         f"Equity: {_fmt_usd(equity_usd)} ({_fmt_pct(total_pnl_pct)} since start)",
         f"Cash: {_fmt_usd(cash_usd)} | Open positions: {open_positions}",
         f"Realized P&L: {_fmt_usd(realized_pnl_usd)} | Unrealized P&L: {_fmt_usd(unrealized_pnl_usd)}",
         f"Closed trades: {total_trades} | Win rate: {win_rate_pct:.1f}%",
-        SIMULATED_DISCLAIMER,
-        PAPER_TRADING_TAG,
+        LIVE_DISCLAIMER if is_live else SIMULATED_DISCLAIMER,
+        LIVE_TRADING_TAG if is_live else PAPER_TRADING_TAG,
     ]
     return "\n".join(lines)

@@ -1,11 +1,17 @@
-"""Tests for trading/broker.py: PaperBroker fill math and the inert
-LiveJupiterBroker stub.
+"""Tests for trading/broker.py: PaperBroker fill math.
+
+See test_live_broker.py for LiveJupiterBroker's tests (mocked Jupiter/RPC).
 """
 from __future__ import annotations
 
 import pytest
 
-from memecoin_bot.trading.broker import Broker, Fill, LiveJupiterBroker, PaperBroker
+from memecoin_bot.trading.broker import Broker, Fill, PaperBroker
+
+
+class TestPaperBrokerIsABroker:
+    def test_is_a_broker_subclass(self):
+        assert issubclass(PaperBroker, Broker)
 
 
 class TestPaperBrokerOpenPosition:
@@ -60,22 +66,3 @@ class TestFill:
     def test_net_usd_property(self):
         fill = Fill(price=1.0, quantity=10.0, fee_usd=2.0, gross_usd=10.0)
         assert fill.net_usd == pytest.approx(8.0)
-
-
-class TestLiveJupiterBrokerIsInert:
-    def test_cannot_be_instantiated(self):
-        with pytest.raises(NotImplementedError):
-            LiveJupiterBroker()
-
-    def test_is_a_broker_subclass(self):
-        assert issubclass(LiveJupiterBroker, Broker)
-
-    def test_methods_raise_if_somehow_called_on_the_class(self):
-        # Even bypassing __init__, the methods themselves must refuse to run.
-        instance = LiveJupiterBroker.__new__(LiveJupiterBroker)
-        with pytest.raises(NotImplementedError):
-            instance.open_position("addr", "SYM", 1.0, 100.0)
-        with pytest.raises(NotImplementedError):
-            instance.close_position("addr", "SYM", 100.0, 1.0)
-        with pytest.raises(NotImplementedError):
-            instance.mark_to_market("addr", 1.0)

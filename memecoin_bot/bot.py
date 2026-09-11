@@ -10,9 +10,12 @@ Flow per cycle (`run_once`):
   4. Persist everything via storage.py and, if enabled, post transparent
      trade logs to X (social/x_client.py).
 
-Nothing here ever touches a real wallet or submits a real transaction --
-`self.broker` is a `PaperBroker` unless a caller deliberately (and, today,
-impossibly -- see trading/broker.py) swaps in a live broker.
+By default `self.broker` is a `PaperBroker`, which never touches the
+network or a real wallet. `cli.py`'s `run --live` path constructs a real
+`LiveJupiterBroker` (trading/live_broker.py) only after every safety gate
+passes, and injects it via the `broker=` constructor parameter below --
+this module never imports the live broker itself, so the default
+paper-trading path never pulls in Solana/Jupiter dependencies.
 """
 from __future__ import annotations
 
@@ -35,7 +38,7 @@ from memecoin_bot.storage import Storage
 from memecoin_bot.strategy.kronos_signal import KronosSignalProvider
 from memecoin_bot.strategy.risk import RiskManager
 from memecoin_bot.strategy.scoring import score_candidates
-from memecoin_bot.trading.broker import PaperBroker
+from memecoin_bot.trading.broker import Broker, PaperBroker
 from memecoin_bot.trading.portfolio import Portfolio, Position
 
 logger = logging.getLogger(__name__)
@@ -83,13 +86,17 @@ def fetch_candidate_pairs(dex_client: DexScreenerClient, settings: Settings) -> 
 class MemecoinBot:
     """Wires together data, strategy, trading, and social components."""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, broker: Optional[Broker] = None):
         self.settings = settings
         self.storage = Storage(settings.db_path)
         self.portfolio = Portfolio.from_storage(settings.starting_balance_usd, self.storage)
-        self.broker = PaperBroker(
+        self.broker = broker or PaperBroker(
             slippage_pct=settings.simulated_slippage_pct, fee_pct=settings.simulated_fee_pct
         )
+        # True whenever a real (non-paper) broker was injected, e.g. `cli.py run
+        # --live`'s LiveJupiterBroker. Only affects wording in social posts
+        # (social/templates.py) -- risk/scoring/storage logic is unchanged.
+        self.is_live = not isinstance(self.broker, PaperBroker)
         self.risk_manager = RiskManager(settings)
         self.dex_client = DexScreenerClient(
             base_url=settings.dexscreener_base_url, timeout=settings.http_timeout_seconds
@@ -172,6 +179,7 @@ class MemecoinBot:
                     realized_pnl_pct=trade.realized_pnl_pct,
                     hold_minutes=trade.hold_minutes,
                     exit_reason=trade.exit_reason,
+                    is_live=self.is_live,
                 )
                 self.x_poster.post(text)
         return closed_count
@@ -249,6 +257,7 @@ class MemecoinBot:
                     size_usd=position.size_usd,
                     score=candidate.score,
                     kronos_confirmed=kronos_confirmed,
+                    is_live=self.is_live,
                 )
                 self.x_poster.post(text)
 
@@ -272,6 +281,7 @@ class MemecoinBot:
             open_positions=self.portfolio.open_position_count,
             total_trades=stats["total_trades"],
             win_rate_pct=stats["win_rate_pct"],
+            is_live=self.is_live,
         )
         result = self.x_poster.post(text)
         if result.posted or result.dry_run:

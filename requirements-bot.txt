@@ -15,3 +15,10 @@ python-dotenv>=1.0.0
 tweepy>=4.14.0
 pytest>=7.4.0
 responses>=0.24.0
+
+# Solana wallet + live trading (`wallet new` / `wallet balance` / `run
+# --live`). Paper trading (the default) does not make any network calls
+# using these, but they're required to import memecoin_bot.trading.wallet /
+# live_broker, so they're installed unconditionally for simplicity.
+solders>=0.20.0
+base58>=2.1.1
