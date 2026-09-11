@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd LaunchAgent for the memecoin_bot paper-trading loop (macOS).
+  Paths below are absolute and point at the repo checkout this file was
+  generated from -- if you relocate the repo or venv, update every
+  /Users/sam/... path in this file before copying it to
+  ~/Library/LaunchAgents/ and running `launchctl load -w`. See
+  memecoin_bot/README.md "Persistent local installation" for full
+  install/uninstall instructions. This runs the exact same paper-trading
+  `run` loop as the CLI -- installing it changes nothing about the
+  paper-trading-only safety posture.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.memecoinbot.trader</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/sam/.copilot/repos/copilot-worktrees/Kronos/ideacobra-stunning-fishstick/.venv/bin/python3</string>
+        <string>-m</string>
+        <string>memecoin_bot.cli</string>
+        <string>run</string>
+        <string>--interval</string>
+        <string>60</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/sam/.copilot/repos/copilot-worktrees/Kronos/ideacobra-stunning-fishstick</string>
+
+    <!-- Start immediately when loaded, and whenever the user logs in. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Restart automatically if the process ever exits/crashes. -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/sam/.copilot/repos/copilot-worktrees/Kronos/ideacobra-stunning-fishstick/logs/trader.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/sam/.copilot/repos/copilot-worktrees/Kronos/ideacobra-stunning-fishstick/logs/trader.err.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+</dict>
+</plist>
