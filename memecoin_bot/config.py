@@ -4,9 +4,16 @@ All values are documented, have sensible defaults, and can be overridden
 via environment variables (loaded from a `.env` file if present). See
 `.env.example` at the repo root for the full list of variables.
 
-Nothing in this module ever reads or stores private key material. The
-only secrets it is aware of are X (Twitter) API credentials, which are
-only used for posting transparent trade logs (see social/x_client.py).
+This module never *reads or stores* the actual Solana private key
+material -- `solana_private_key_present` only records whether
+`SOLANA_PRIVATE_KEY` is set, never its value, so a `Settings` instance can
+never leak the secret via logging/printing/repr. The real key is loaded
+directly from the environment by `trading/wallet.py` only at the moment
+it's needed to sign a transaction. `SOLANA_RPC_URL` (used by live trading)
+often embeds an API key as a query parameter (e.g. Helius); this module
+does store that value (it's needed to actually make RPC calls), but
+callers must always display it through `trading.solana_rpc.mask_rpc_url`,
+never in full.
 """
 from __future__ import annotations
 
@@ -130,6 +137,26 @@ class Settings:
     x_post_periodic_summary: bool = True
     x_summary_interval_minutes: float = 240.0
 
+    # --- Live trading (Solana / Jupiter) ---------------------------------------
+    # OFF by default. See memecoin_bot/README.md "Going Live" for the full
+    # go-live checklist. `solana_private_key_present` is a boolean existence
+    # check only -- the actual secret is never stored on this object (see
+    # trading/wallet.py::load_keypair_from_env, which reads it directly from
+    # the environment only at the moment it's needed).
+    enable_live_trading: bool = False
+    solana_private_key_present: bool = False
+    solana_rpc_url: Optional[str] = None
+    jupiter_quote_url: str = "https://api.jup.ag/swap/v1/quote"
+    jupiter_swap_url: str = "https://api.jup.ag/swap/v1/swap"
+    # 400 bps (4%) -- conservative for illiquid memecoins.
+    live_slippage_bps: int = 400
+    # "auto" uses Jupiter's recommended/estimated priority fee; set to an
+    # integer lamports value (as a string) to pin a fixed fee instead.
+    live_priority_fee: str = "auto"
+    live_confirmation_timeout_seconds: float = 60.0
+    # Always left unspent as a buffer for tx fees / ATA rent across a few trades.
+    live_wallet_balance_buffer_sol: float = 0.01
+
     @property
     def x_credentials_present(self) -> bool:
         return all(
@@ -144,6 +171,24 @@ class Settings:
         a real network call. See social/x_client.py.
         """
         return self.enable_x_posting and self.x_credentials_present
+
+    @property
+    def live_trading_env_ready(self) -> bool:
+        """True if ENABLE_LIVE_TRADING + SOLANA_PRIVATE_KEY + a private
+        (non-public) SOLANA_RPC_URL are all configured.
+
+        This does NOT check the CLI's `--i-understand-live-trading-risk`
+        flag -- see cli.py's `check_live_trading_gate`, which additionally
+        requires that flag on every single invocation.
+        """
+        from memecoin_bot.trading.solana_rpc import is_public_rpc_url
+
+        return (
+            self.enable_live_trading
+            and self.solana_private_key_present
+            and bool(self.solana_rpc_url)
+            and not is_public_rpc_url(self.solana_rpc_url)
+        )
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -205,6 +250,19 @@ class Settings:
             ),
             x_summary_interval_minutes=_float(
                 "X_SUMMARY_INTERVAL_MINUTES", cls.x_summary_interval_minutes
+            ),
+            enable_live_trading=_bool("ENABLE_LIVE_TRADING", cls.enable_live_trading),
+            solana_private_key_present=bool(_opt_str("SOLANA_PRIVATE_KEY")),
+            solana_rpc_url=_opt_str("SOLANA_RPC_URL"),
+            jupiter_quote_url=_str("JUPITER_QUOTE_URL", cls.jupiter_quote_url),
+            jupiter_swap_url=_str("JUPITER_SWAP_URL", cls.jupiter_swap_url),
+            live_slippage_bps=_int("LIVE_SLIPPAGE_BPS", cls.live_slippage_bps),
+            live_priority_fee=_str("LIVE_PRIORITY_FEE_LAMPORTS", cls.live_priority_fee),
+            live_confirmation_timeout_seconds=_float(
+                "LIVE_CONFIRMATION_TIMEOUT_SECONDS", cls.live_confirmation_timeout_seconds
+            ),
+            live_wallet_balance_buffer_sol=_float(
+                "LIVE_WALLET_BALANCE_BUFFER_SOL", cls.live_wallet_balance_buffer_sol
             ),
         )
 

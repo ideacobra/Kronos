@@ -1,12 +1,16 @@
-"""Trade execution abstraction: `Broker`, `PaperBroker`, and the explicit
-live-trading stub `LiveJupiterBroker`.
+"""Trade execution abstraction: `Broker` (the interface) and `PaperBroker`
+(the fully-simulated implementation used by default).
 
-SAFETY: `PaperBroker` is the only broker implemented here, and it never
-touches the network or a real wallet -- it only does arithmetic to
-simulate a fill (price impact via slippage + a fee) against numbers the
-bot already fetched from public market-data APIs. `LiveJupiterBroker` is
-an intentionally inert stub: it cannot be instantiated, let alone place a
-real trade. See its docstring for what real implementation would require.
+SAFETY: `PaperBroker` never touches the network or a real wallet -- it only
+does arithmetic to simulate a fill (price impact via slippage + a fee)
+against numbers the bot already fetched from public market-data APIs.
+
+The real, network-touching implementation, `LiveJupiterBroker`, lives in
+`trading/live_broker.py` (kept separate so importing this module -- and
+running the bot in its default paper-trading mode -- never pulls in
+`solders`/Solana RPC/Jupiter dependencies). It is only ever constructed by
+`cli.py` after `run --live` passes every safety gate documented in
+`memecoin_bot/README.md`'s "Going Live" section.
 """
 from __future__ import annotations
 
@@ -99,59 +103,3 @@ class PaperBroker(Broker):
 
     def mark_to_market(self, token_address: str, reference_price: float) -> float:
         return reference_price
-
-
-class LiveJupiterBroker(Broker):
-    """STUB. Not implemented. Do not implement without reading this fully.
-
-    This class is an explicit extension point for someone who later wants
-    to place *real* trades on Solana via Jupiter's aggregator, using a
-    *real* funded wallet. It is intentionally inert: constructing it always
-    raises `NotImplementedError`, and every method also raises so there is
-    no path -- accidental or otherwise -- through which this codebase can
-    move real funds today.
-
-    To implement this for real, you would need at minimum:
-      1. A Solana keypair with actual SOL/SPL token balances, loaded from a
-         secure secret store (e.g. an OS keychain or an HSM) -- never a
-         plaintext env var or a file committed to a repo. This bot's config
-         layer (memecoin_bot/config.py) deliberately has no concept of a
-         private key.
-      2. Integration with Jupiter's Swap API
-         (https://station.jup.ag/docs/apis/swap-api) to fetch a route/quote
-         and build an unsigned swap transaction for the desired token pair
-         and amount.
-      3. Priority fee / compute-unit-price handling so transactions land
-         reliably during congestion, typically via Jupiter's `prioritizationFeeLamports`
-         option or a separate fee-estimation service.
-      4. Slippage protection: a maximum acceptable `slippageBps` (or Jupiter's
-         dynamic slippage estimator) plus a check that the returned quote's
-         price impact is within an acceptable bound before ever signing.
-      5. Transaction signing (with the keypair from #1) and submission via a
-         Solana RPC client (e.g. `solana-py` / `solders`), with confirmation
-         polling, retry-with-backoff, and handling for dropped/expired
-         blockhashes.
-      6. Careful handling of partial fills, failed simulations, and dust
-         amounts, plus real accounting reconciliation against on-chain
-         balances rather than assumed fills.
-
-    None of the above exists in this repository, by design.
-    """
-
-    def __init__(self, *_args, **_kwargs):
-        raise NotImplementedError(
-            "LiveJupiterBroker is a documented stub and is not implemented. "
-            "This bot is paper-trading only. See this class's docstring for "
-            "what real implementation would require (Solana keypair custody, "
-            "Jupiter Swap API integration, priority fees, slippage protection, "
-            "transaction signing/submission)."
-        )
-
-    def open_position(self, token_address: str, symbol: str, reference_price: float, size_usd: float) -> Fill:
-        raise NotImplementedError("LiveJupiterBroker.open_position is not implemented. See class docstring.")
-
-    def close_position(self, token_address: str, symbol: str, quantity: float, reference_price: float) -> Fill:
-        raise NotImplementedError("LiveJupiterBroker.close_position is not implemented. See class docstring.")
-
-    def mark_to_market(self, token_address: str, reference_price: float) -> float:
-        raise NotImplementedError("LiveJupiterBroker.mark_to_market is not implemented. See class docstring.")
