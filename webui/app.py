@@ -166,9 +166,9 @@ def save_prediction_results(file_path, prediction_type, prediction_results, actu
             # Calculate continuity analysis
             if len(prediction_results) > 0 and len(actual_data) > 0:
                 last_pred = prediction_results[0]  # First prediction point
-            first_actual = actual_data[0]      # First actual point
-                
-            save_data['analysis']['continuity'] = {
+                first_actual = actual_data[0]      # First actual point
+
+                save_data['analysis']['continuity'] = {
                     'last_prediction': {
                         'open': last_pred['open'],
                         'high': last_pred['high'],

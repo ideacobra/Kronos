@@ -153,6 +153,7 @@ def train_tokenizer(model, device, config, save_dir, logger):
     use_ddp = dist.is_available() and dist.is_initialized()
     rank = dist.get_rank() if use_ddp else 0
     world_size = dist.get_world_size() if use_ddp else 1
+    start_time = time.time()
     
     train_loader, val_loader, train_dataset, val_dataset, train_sampler, val_sampler = create_dataloaders(config)
     
@@ -260,7 +261,7 @@ def train_tokenizer(model, device, config, save_dir, logger):
         epoch_summary = (f"\n--- Epoch {epoch+1}/{config.tokenizer_epochs} Summary ---\n"
                        f"Validation Loss: {avg_val_loss:.4f}\n"
                        f"Epoch Time: {format_time(epoch_time)}\n"
-                       f"Total Training Time: {format_time(time.time() - epoch_start_time)}\n")
+                       f"Total Training Time: {format_time(time.time() - start_time)}\n")
         logger.info(epoch_summary)
         if rank == 0:
             print(epoch_summary)
