@@ -1,0 +1,17 @@
+# Additive dependencies for memecoin_bot -- kept separate from the root
+# requirements.txt so people who just want the Kronos forecasting model
+# aren't forced into these (and vice versa: memecoin_bot's core scan/paper
+# trade/post loop does NOT need torch/pandas/numpy at all).
+#
+# Install with:
+#   pip install -r requirements-bot.txt
+#
+# Only needed IN ADDITION to this if you want the optional Kronos
+# confirmation signal (USE_KRONOS_SIGNAL=true in .env):
+#   pip install -r requirements.txt
+
+requests>=2.31.0
+python-dotenv>=1.0.0
+tweepy>=4.14.0
+pytest>=7.4.0
+responses>=0.24.0

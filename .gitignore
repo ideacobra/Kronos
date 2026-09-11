@@ -55,6 +55,12 @@ Desktop.ini
 *.ckpt
 *.bin
 
+# memecoin_bot runtime artifacts
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
 # Logs
 *.log
 logs/
